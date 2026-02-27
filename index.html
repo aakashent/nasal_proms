@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NASALPROM PROM Copier (Clinician)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>NASALPROM PROM Copier</h1>
+      <p class="sub">Clinician page — complete NOSE + SNOT-22, then copy for spreadsheet or EPR.</p>
+    </div>
+    <div class="topActions">
+      <a class="linkBtn" href="./patient.html">Patient page</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div>
+        <label for="date">Date (optional)</label>
+        <input id="date" type="date" />
+      </div>
+      <div>
+        <label for="timepoint">Timepoint (optional)</label>
+        <select id="timepoint">
+          <option value="Pre-op">Pre-op</option>
+          <option value="Post-op">Post-op</option>
+          <option value="6 weeks">6 weeks</option>
+          <option value="3 months">3 months</option>
+          <option value="6 months">6 months</option>
+        </select>
+      </div>
+      <div>
+        <label for="block">Spreadsheet block</label>
+        <select id="block">
+          <option value="baseline">Baseline block</option>
+          <option value="followup">Follow-up block</option>
+        </select>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:10px;">
+      Tip: the TSV paste fills the PROM block you choose (baseline or follow-up). Click the first cell of that block, then paste.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>NOSE (0–4)</h2>
+    <p class="small muted">0 = not a problem; 4 = severe problem.</p>
+    <div id="noseQs"></div>
+    <div class="totals">
+      <span class="pill"><span>NOSE total</span> <b id="noseTotal">0</b> <span class="muted">/ 20</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>SNOT-22 (0–5)</h2>
+    <p class="small muted">0 = no problem; 5 = problem as bad as it can be.</p>
+    <div id="snotQs"></div>
+    <div class="totals">
+      <span class="pill"><span>SNOT-22 total</span> <b id="snotTotal">0</b> <span class="muted">/ 110</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Copy / Paste</h2>
+    <div class="btns">
+      <button class="primary" id="copySheet">Copy for NASALPROM spreadsheet (TSV)</button>
+      <button id="copyEpr">Copy for EPR (readable text)</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <p class="small muted" style="margin:10px 0 8px;">
+      Spreadsheet TSV: click the first PROM cell in the correct block, paste once, and it will fill across columns.
+    </p>
+
+    <textarea id="preview" readonly></textarea>
+  </section>
+
+  <script src="./app.js"></script>
+  <script>
+    NasalPromApp.mountClinician({
+      emailTo: "nasalprom@yourorganisation.example", // not used on clinician page, here for consistency
+      includeTsvInPatientEmail: true
+    });
+  </script>
+</body>
+</html>
