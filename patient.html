@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NASALPROM PROMs (Patient)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Questionnaires for your nose symptoms</h1>
+      <p class="sub">
+        Please complete the questionnaires below, then tap <b>Email results</b>.
+        No information is saved on this page.
+      </p>
+    </div>
+    <div class="topActions">
+      <a class="linkBtn" href="./index.html">Clinician page</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div>
+        <label for="p_date">Date</label>
+        <input id="p_date" type="date" />
+      </div>
+      <div>
+        <label for="p_timepoint">Timepoint</label>
+        <select id="p_timepoint">
+          <option value="Pre-op">Before treatment / surgery</option>
+          <option value="Post-op">After treatment / surgery</option>
+          <option value="6 weeks">6 weeks</option>
+          <option value="3 months">3 months</option>
+          <option value="6 months">6 months</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="small muted" style="margin-top:10px;">
+      Please do not include names, dates of birth, or other sensitive personal details in free text.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>NOSE questionnaire (0–4)</h2>
+    <p class="small muted">0 = not a problem; 4 = severe problem.</p>
+    <div id="noseQs"></div>
+    <div class="totals">
+      <span class="pill"><span>NOSE total</span> <b id="noseTotal">0</b> <span class="muted">/ 20</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>SNOT-22 questionnaire (0–5)</h2>
+    <p class="small muted">0 = no problem; 5 = as bad as it can be.</p>
+    <div id="snotQs"></div>
+    <div class="totals">
+      <span class="pill"><span>SNOT-22 total</span> <b id="snotTotal">0</b> <span class="muted">/ 110</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Send your results</h2>
+    <div class="btns">
+      <button class="primary" id="emailResults">Email results</button>
+      <button id="copyPatientText">Copy results (backup)</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <p class="small muted" style="margin:10px 0 8px;">
+      If email doesn’t open (some phones/work profiles block it), use “Copy results” and paste into an email manually.
+    </p>
+
+    <textarea id="preview" readonly></textarea>
+  </section>
+
+  <script src="./app.js"></script>
+  <script>
+    NasalPromApp.mountPatient({
+      emailTo: "nasalprom@yourorganisation.example", // <-- CHANGE THIS LATER
+      includeTsvLine: true // include an extra TSV line at the bottom to help admin paste into Sheets
+    });
+  </script>
+</body>
+</html>
