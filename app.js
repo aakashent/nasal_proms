@@ -2,17 +2,20 @@
  * - Clinician: Copy TSV for spreadsheet OR readable EPR text
  * - Patient: Email readable results (optional TSV lines)
  *
- * Key safety behaviour:
+ * Safety behaviour:
  * - Allows completing NOSE only, SNOT-22 only, or both.
- * - BUT blocks copy/email if a questionnaire is partially completed (to avoid blank overwrites).
+ * - Blocks copy/email if a questionnaire is partially completed.
  * - TSV copy is "smart":
  *    - both complete -> FULL block TSV (NOSE+Total + SNOT+Total)
  *    - only NOSE complete -> NOSE-only TSV (6 cols)
  *    - only SNOT complete -> SNOT-only TSV (23 cols)
+ *
+ * FIX included:
+ * - Preview/copy output now updates when top controls change:
+ *   baseline/follow-up selector, date, timepoint.
  */
 
 const NasalPromApp = (() => {
-  // NOSE order (as per your sheet)
   const NOSE_ITEMS = [
     "Nasal congestion",
     "Nasal obstruction",
@@ -21,7 +24,6 @@ const NasalPromApp = (() => {
     "Unable to get enough air through nose during exercise",
   ];
 
-  // SNOT-22 order (as per your sheet)
   const SNOT_ITEMS = [
     "Need to blow nose",
     "Sneezing",
@@ -62,6 +64,16 @@ const NasalPromApp = (() => {
     const m = String(now.getMonth() + 1).padStart(2, "0");
     const d = String(now.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
+  }
+
+  function bindUpdate(ids, fn) {
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("change", fn);
+      // for some mobile browsers, "input" improves responsiveness for selects/text
+      el.addEventListener("input", fn);
+    });
   }
 
   function makeRadioRow(name, max, onChange) {
@@ -107,13 +119,12 @@ const NasalPromApp = (() => {
     const out = [];
     for (let i = 0; i < count; i++) {
       const sel = document.querySelector(`input[name="${prefix}${i}"]:checked`);
-      out.push(sel ? Number(sel.value) : null); // null = unanswered
+      out.push(sel ? Number(sel.value) : null);
     }
     return out;
   }
 
   function completionState(scores) {
-    // scores: array of number|null
     const answered = scores.filter(v => v !== null).length;
     if (answered === 0) return "empty";
     if (answered === scores.length) return "complete";
@@ -125,17 +136,13 @@ const NasalPromApp = (() => {
     if (st === "partial") {
       throw new Error(`${label} is partly completed. Please answer all questions in ${label}, or clear it and leave it blank.`);
     }
-    return st; // "empty" or "complete"
+    return st;
   }
 
   function scoresToNumbers(scores) {
-    // convert nulls -> 0, but we only call this when complete (no nulls)
     return scores.map(v => Number(v));
   }
 
-  // TSV builders
-  // Full block TSV:
-  // NOSE Q1..Q5, NOSE Total, SNOT Q1..Q22, SNOT Total
   function buildFullBlockTSV(noseNums, snotNums) {
     const cols = [
       ...noseNums.map(String),
@@ -146,21 +153,13 @@ const NasalPromApp = (() => {
     return cols.join("\t");
   }
 
-  // NOSE-only TSV: Q1..Q5, Total
   function buildNoseOnlyTSV(noseNums) {
-    const cols = [
-      ...noseNums.map(String),
-      String(sum(noseNums)),
-    ];
+    const cols = [...noseNums.map(String), String(sum(noseNums))];
     return cols.join("\t");
   }
 
-  // SNOT-only TSV: Q1..Q22, Total
   function buildSnotOnlyTSV(snotNums) {
-    const cols = [
-      ...snotNums.map(String),
-      String(sum(snotNums)),
-    ];
+    const cols = [...snotNums.map(String), String(sum(snotNums))];
     return cols.join("\t");
   }
 
@@ -189,9 +188,7 @@ const NasalPromApp = (() => {
       lines.push("");
     }
 
-    // Trim trailing blank line
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
-
     return lines.join("\n");
   }
 
@@ -214,7 +211,6 @@ const NasalPromApp = (() => {
     document.querySelectorAll('input[type="radio"]').forEach(r => (r.checked = false));
   }
 
-  // Decide what TSV to output based on completion state
   function buildSmartTSV(noseScores, snotScores) {
     const noseState = assertNotPartialOrThrow("NOSE", noseScores);
     const snotState = assertNotPartialOrThrow("SNOT-22", snotScores);
@@ -226,40 +222,23 @@ const NasalPromApp = (() => {
     if (noseState === "complete" && snotState === "complete") {
       const noseNums = scoresToNumbers(noseScores);
       const snotNums = scoresToNumbers(snotScores);
-      return {
-        mode: "full",
-        tsv: buildFullBlockTSV(noseNums, snotNums),
-        noseNums,
-        snotNums
-      };
+      return { mode: "full", tsv: buildFullBlockTSV(noseNums, snotNums), noseNums, snotNums };
     }
 
     if (noseState === "complete") {
       const noseNums = scoresToNumbers(noseScores);
-      return {
-        mode: "nose",
-        tsv: buildNoseOnlyTSV(noseNums),
-        noseNums,
-        snotNums: null
-      };
+      return { mode: "nose", tsv: buildNoseOnlyTSV(noseNums), noseNums, snotNums: null };
     }
 
-    // snot only
     const snotNums = scoresToNumbers(snotScores);
-    return {
-      mode: "snot",
-      tsv: buildSnotOnlyTSV(snotNums),
-      noseNums: null,
-      snotNums
-    };
+    return { mode: "snot", tsv: buildSnotOnlyTSV(snotNums), noseNums: null, snotNums };
   }
 
-  function mountClinician(config = {}) {
+  function mountClinician() {
     const onChange = () => {
       const noseScores = getScores("nose_", NOSE_ITEMS.length);
       const snotScores = getScores("snot_", SNOT_ITEMS.length);
 
-      // Totals: show sums for answered items only (ignores nulls)
       const noseAnswered = noseScores.filter(v => v !== null).map(Number);
       const snotAnswered = snotScores.filter(v => v !== null).map(Number);
 
@@ -268,10 +247,10 @@ const NasalPromApp = (() => {
       if (noseTotalEl) noseTotalEl.textContent = String(sum(noseAnswered));
       if (snotTotalEl) snotTotalEl.textContent = String(sum(snotAnswered));
 
-      // Preview: show what TSV would be if valid; otherwise show helpful hint
       const preview = document.getElementById("preview");
       if (!preview) return;
 
+      // TSV preview depends only on questionnaire state, not top selectors
       try {
         const { tsv } = buildSmartTSV(noseScores, snotScores);
         preview.value = tsv;
@@ -283,9 +262,12 @@ const NasalPromApp = (() => {
     addQuestions("noseQs", NOSE_ITEMS, "nose_", 4, onChange);
     addQuestions("snotQs", SNOT_ITEMS, "snot_", 5, onChange);
 
-    // Default date to today on clinician page too
+    // Default date today
     const dateEl = document.getElementById("date");
     if (dateEl && !dateEl.value) dateEl.value = todayIso();
+
+    // ✅ Ensure top controls trigger updates too
+    bindUpdate(["date", "timepoint", "block"], onChange);
 
     onChange();
 
@@ -326,7 +308,6 @@ const NasalPromApp = (() => {
         const dateIso = (document.getElementById("date") || {}).value || "";
         const timepoint = (document.getElementById("timepoint") || {}).value || "";
 
-        // This selector is useful for EPR context only
         const blockSel = document.getElementById("block");
         const block = blockSel ? blockSel.value : "baseline";
         const blockLabel = block === "followup" ? "Follow-up" : "Baseline";
@@ -334,7 +315,6 @@ const NasalPromApp = (() => {
         const noseScores = getScores("nose_", NOSE_ITEMS.length);
         const snotScores = getScores("snot_", SNOT_ITEMS.length);
 
-        // For EPR we also enforce "no partial questionnaires"
         let noseState, snotState;
         try {
           noseState = assertNotPartialOrThrow("NOSE", noseScores);
@@ -397,7 +377,6 @@ const NasalPromApp = (() => {
       const dateIso = (document.getElementById("p_date") || {}).value || "";
       const timepoint = (document.getElementById("p_timepoint") || {}).value || "";
 
-      // For preview, show what would be sent (but keep it readable)
       try {
         const noseState = assertNotPartialOrThrow("NOSE", noseScores);
         const snotState = assertNotPartialOrThrow("SNOT-22", snotScores);
@@ -419,11 +398,11 @@ const NasalPromApp = (() => {
 
         const tsvBits = [];
         if (noseNums && snotNums) {
-          tsvBits.push(`FULL TSV (paste into first PROM cell of block):\n${buildFullBlockTSV(noseNums, snotNums)}`);
+          tsvBits.push(`FULL TSV:\n${buildFullBlockTSV(noseNums, snotNums)}`);
         } else if (noseNums) {
-          tsvBits.push(`NOSE TSV only (paste into first NOSE cell of block):\n${buildNoseOnlyTSV(noseNums)}`);
+          tsvBits.push(`NOSE TSV only:\n${buildNoseOnlyTSV(noseNums)}`);
         } else if (snotNums) {
-          tsvBits.push(`SNOT-22 TSV only (paste into first SNOT-22 cell of block):\n${buildSnotOnlyTSV(snotNums)}`);
+          tsvBits.push(`SNOT-22 TSV only:\n${buildSnotOnlyTSV(snotNums)}`);
         }
 
         preview.value = `${readable}\n\n${tsvBits.join("\n\n")}`;
@@ -435,9 +414,11 @@ const NasalPromApp = (() => {
     addQuestions("noseQs", NOSE_ITEMS, "nose_", 4, onChange);
     addQuestions("snotQs", SNOT_ITEMS, "snot_", 5, onChange);
 
-    // Default date to today on patient page
     const d = document.getElementById("p_date");
     if (d && !d.value) d.value = todayIso();
+
+    // ✅ Ensure top controls trigger updates too
+    bindUpdate(["p_date", "p_timepoint"], onChange);
 
     onChange();
 
@@ -475,11 +456,11 @@ const NasalPromApp = (() => {
 
       const tsvBits = [];
       if (noseNums && snotNums) {
-        tsvBits.push(`FULL TSV (paste into first PROM cell of block):\n${buildFullBlockTSV(noseNums, snotNums)}`);
+        tsvBits.push(`FULL TSV:\n${buildFullBlockTSV(noseNums, snotNums)}`);
       } else if (noseNums) {
-        tsvBits.push(`NOSE TSV only (paste into first NOSE cell of block):\n${buildNoseOnlyTSV(noseNums)}`);
+        tsvBits.push(`NOSE TSV only:\n${buildNoseOnlyTSV(noseNums)}`);
       } else if (snotNums) {
-        tsvBits.push(`SNOT-22 TSV only (paste into first SNOT-22 cell of block):\n${buildSnotOnlyTSV(snotNums)}`);
+        tsvBits.push(`SNOT-22 TSV only:\n${buildSnotOnlyTSV(snotNums)}`);
       }
 
       const body = `${readable}\n\n${tsvBits.join("\n\n")}\n`;
