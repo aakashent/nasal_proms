@@ -1,10 +1,12 @@
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
+
 body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   margin: 18px;
   max-width: 980px;
 }
+
 h1 { margin: 0 0 6px; font-size: 22px; }
 h2 { margin: 0 0 8px; font-size: 18px; }
 .sub { margin: 0; opacity: .82; }
@@ -25,43 +27,101 @@ h2 { margin: 0 0 8px; font-size: 18px; }
   margin: 12px 0;
 }
 
-.row { display:flex; gap: 10px; flex-wrap: wrap; align-items: end; }
-.row > div { min-width: 220px; flex: 1; }
+/* ✅ Mobile-safe row layout */
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: end;
+}
 
-label { display:block; font-size: 12px; opacity: .85; margin-bottom: 6px; }
+/* IMPORTANT: remove min-width forcing overflow */
+.row > div {
+  min-width: 0;
+  flex: 1 1 220px; /* grows, but can shrink */
+}
+
+label {
+  display:block;
+  font-size: 12px;
+  opacity: .85;
+  margin-bottom: 6px;
+}
+
+/* ✅ Inputs should never overflow and should inherit colour */
 input[type="text"], input[type="date"], select {
   width: 100%;
+  max-width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(120,120,120,.35);
   background: transparent;
+  color: inherit;
+}
+
+/* iOS date input can look odd; this helps centring/visibility */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .small { font-size: 12px; }
 .muted { opacity: .78; }
 
-.q { padding: 10px 0; border-top: 1px solid rgba(120,120,120,.2); }
+.q {
+  padding: 10px 0;
+  border-top: 1px solid rgba(120,120,120,.2);
+}
 .q:first-of-type { border-top: none; }
 .qtitle { font-weight: 600; margin-bottom: 8px; }
 
-.opts { display:flex; gap: 8px; flex-wrap: wrap; }
+/* ✅ Keep 0–5 on ONE LINE on mobile:
+   - no wrapping
+   - horizontal scroll if needed
+*/
+.opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;             /* key change */
+  overflow-x: auto;              /* allows single-line */
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;           /* makes scroll feel nicer */
+}
+
 .opt {
-  display:flex; align-items:center; gap: 6px;
+  display:flex;
+  align-items:center;
+  gap: 6px;
   border: 1px solid rgba(120,120,120,.3);
   padding: 6px 10px;
   border-radius: 999px;
   user-select:none;
+  flex: 0 0 auto;                /* prevents shrinking/wrapping */
 }
 
-.totals { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.totals {
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 .pill {
-  display:inline-flex; gap: 8px; align-items: baseline;
+  display:inline-flex;
+  gap: 8px;
+  align-items: baseline;
   border: 1px solid rgba(120,120,120,.35);
   border-radius: 999px;
   padding: 8px 12px;
 }
 
-.btns { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.btns {
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 button, .linkBtn {
   padding: 10px 12px;
   border-radius: 12px;
@@ -74,6 +134,7 @@ button, .linkBtn {
   align-items: center;
   justify-content: center;
 }
+
 button.primary {
   background: rgba(66,155,181,.20);
   border-color: rgba(66,155,181,.55);
@@ -86,6 +147,16 @@ textarea {
   border-radius: 12px;
   border: 1px solid rgba(120,120,120,.35);
   background: transparent;
+  color: inherit;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
+}
+
+/* ✅ Extra mobile polish */
+@media (max-width: 520px) {
+  body { margin: 14px; }
+  .card { padding: 12px; }
+  .top { flex-direction: column; }
+  .topActions { width: 100%; justify-content: flex-end; }
+  .row > div { flex: 1 1 100%; }  /* stack fields */
 }
