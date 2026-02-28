@@ -2,17 +2,20 @@
  * - Clinician: Copy TSV for spreadsheet OR readable EPR text
  * - Patient: Email readable results (optional TSV lines)
  *
- * Safety behaviour:
- * - Allows completing NOSE only, SNOT-22 only, or both.
+ * Safety:
+ * - Allows NOSE only, SNOT-22 only, or both.
  * - Blocks copy/email if a questionnaire is partially completed.
  * - TSV copy is "smart":
- *    - both complete -> FULL block TSV (NOSE+Total + SNOT+Total)
+ *    - both complete -> FULL block TSV (NOSE Qs + raw total, SNOT Qs + total)
  *    - only NOSE complete -> NOSE-only TSV (6 cols)
  *    - only SNOT complete -> SNOT-only TSV (23 cols)
  *
- * FIX included:
- * - Preview/copy output now updates when top controls change:
- *   baseline/follow-up selector, date, timepoint.
+ * Updates:
+ * - EPR text now shows NOSE raw total (/20) AND scaled score (/100, raw*5).
+ * - Per-questionnaire reset buttons:
+ *    - #resetNose clears NOSE only
+ *    - #resetSnot clears SNOT-22 only
+ * - Preview updates when top selectors change (date/timepoint/block)
  */
 
 const NasalPromApp = (() => {
@@ -71,7 +74,6 @@ const NasalPromApp = (() => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener("change", fn);
-      // for some mobile browsers, "input" improves responsiveness for selects/text
       el.addEventListener("input", fn);
     });
   }
@@ -143,10 +145,12 @@ const NasalPromApp = (() => {
     return scores.map(v => Number(v));
   }
 
+  // TSV builders
+  // Full block TSV: NOSE Q1..Q5, NOSE RAW Total (0-20), SNOT Q1..Q22, SNOT Total (0-110)
   function buildFullBlockTSV(noseNums, snotNums) {
     const cols = [
       ...noseNums.map(String),
-      String(sum(noseNums)),
+      String(sum(noseNums)),      // raw total
       ...snotNums.map(String),
       String(sum(snotNums)),
     ];
@@ -175,8 +179,10 @@ const NasalPromApp = (() => {
     lines.push("");
 
     if (noseNumsOrNull) {
-      const noseTotal = sum(noseNumsOrNull);
-      lines.push(`NOSE total: ${noseTotal} / 20`);
+      const noseRaw = sum(noseNumsOrNull);      // 0–20
+      const noseScaled = noseRaw * 5;           // 0–100 (standard NOSE scaling)
+      lines.push(`NOSE raw total: ${noseRaw} / 20`);
+      lines.push(`NOSE score (0–100): ${noseScaled} / 100`);
       NOSE_ITEMS.forEach((t, i) => lines.push(`- ${t}: ${noseNumsOrNull[i]}`));
       lines.push("");
     }
@@ -207,7 +213,13 @@ const NasalPromApp = (() => {
     }
   }
 
-  function resetRadios() {
+  function resetRadiosByPrefix(prefix, count) {
+    for (let i = 0; i < count; i++) {
+      document.querySelectorAll(`input[name="${prefix}${i}"]`).forEach(r => (r.checked = false));
+    }
+  }
+
+  function resetAllRadios() {
     document.querySelectorAll('input[type="radio"]').forEach(r => (r.checked = false));
   }
 
@@ -250,7 +262,7 @@ const NasalPromApp = (() => {
       const preview = document.getElementById("preview");
       if (!preview) return;
 
-      // TSV preview depends only on questionnaire state, not top selectors
+      // Default preview: TSV (safe smart)
       try {
         const { tsv } = buildSmartTSV(noseScores, snotScores);
         preview.value = tsv;
@@ -266,7 +278,7 @@ const NasalPromApp = (() => {
     const dateEl = document.getElementById("date");
     if (dateEl && !dateEl.value) dateEl.value = todayIso();
 
-    // ✅ Ensure top controls trigger updates too
+    // Update preview if top controls change
     bindUpdate(["date", "timepoint", "block"], onChange);
 
     onChange();
@@ -274,6 +286,23 @@ const NasalPromApp = (() => {
     const copySheetBtn = document.getElementById("copySheet");
     const copyEprBtn = document.getElementById("copyEpr");
     const resetBtn = document.getElementById("reset");
+
+    const resetNoseBtn = document.getElementById("resetNose");
+    const resetSnotBtn = document.getElementById("resetSnot");
+
+    if (resetNoseBtn) {
+      resetNoseBtn.addEventListener("click", () => {
+        resetRadiosByPrefix("nose_", NOSE_ITEMS.length);
+        onChange();
+      });
+    }
+
+    if (resetSnotBtn) {
+      resetSnotBtn.addEventListener("click", () => {
+        resetRadiosByPrefix("snot_", SNOT_ITEMS.length);
+        onChange();
+      });
+    }
 
     if (copySheetBtn) {
       copySheetBtn.addEventListener("click", async () => {
@@ -343,7 +372,7 @@ const NasalPromApp = (() => {
 
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
-        resetRadios();
+        resetAllRadios();
         const dateEl2 = document.getElementById("date");
         if (dateEl2) dateEl2.value = todayIso();
         const tpEl = document.getElementById("timepoint");
@@ -417,7 +446,6 @@ const NasalPromApp = (() => {
     const d = document.getElementById("p_date");
     if (d && !d.value) d.value = todayIso();
 
-    // ✅ Ensure top controls trigger updates too
     bindUpdate(["p_date", "p_timepoint"], onChange);
 
     onChange();
@@ -425,6 +453,23 @@ const NasalPromApp = (() => {
     const emailBtn = document.getElementById("emailResults");
     const copyBtn = document.getElementById("copyPatientText");
     const resetBtn = document.getElementById("reset");
+
+    const resetNoseBtn = document.getElementById("resetNose");
+    const resetSnotBtn = document.getElementById("resetSnot");
+
+    if (resetNoseBtn) {
+      resetNoseBtn.addEventListener("click", () => {
+        resetRadiosByPrefix("nose_", NOSE_ITEMS.length);
+        onChange();
+      });
+    }
+
+    if (resetSnotBtn) {
+      resetSnotBtn.addEventListener("click", () => {
+        resetRadiosByPrefix("snot_", SNOT_ITEMS.length);
+        onChange();
+      });
+    }
 
     function buildPatientMessageOrThrow() {
       const dateIso = (document.getElementById("p_date") || {}).value || "";
@@ -502,7 +547,7 @@ const NasalPromApp = (() => {
 
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
-        resetRadios();
+        resetAllRadios();
         const tp = document.getElementById("p_timepoint");
         if (tp) tp.value = "Pre-op";
         const d2 = document.getElementById("p_date");
